@@ -33,6 +33,9 @@ jobs:
           unzip -q histoscroll-source.zip -d reconstructed
           test -f reconstructed/public/index.html
           test -f reconstructed/public/config.js
+          python deploy/admin_test_patch.py reconstructed/public
+          grep -q "adminDemoBtn" reconstructed/public/index.html
+          grep -q "histoscroll-pages-v4" reconstructed/public/sw.js
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
