@@ -1,0 +1,47 @@
+name: Deploy HistoScroll to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reconstruct HistoScroll source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reconstructed
+          cat bundle/part* | base64 --decode > histoscroll-source.zip
+          unzip -q histoscroll-source.zip -d reconstructed
+          test -f reconstructed/public/index.html
+          test -f reconstructed/public/config.js
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: reconstructed/public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
