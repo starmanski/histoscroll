@@ -49,12 +49,15 @@ jobs:
             patch -p1 < /tmp/mobile_v3.patch
           )
 
+          python deploy/generator_tkinter_hotfix.py reconstructed/public
+
           grep -q "favoriteBtn" reconstructed/public/index.html
           grep -q "statusFilter" reconstructed/public/index.html
           grep -q "markCurrentSeen" reconstructed/public/app.js
           grep -q "lastSwipeAt" reconstructed/public/app.js
           grep -q "histoscroll-pages-v6" reconstructed/public/sw.js
           test -f reconstructed/public/pc-generator/HistoScroll_PC_Generator.py
+          ! grep -q "pack(side='left',pad=" reconstructed/public/pc-generator/HistoScroll_PC_Generator.py
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
