@@ -51,11 +51,18 @@ jobs:
 
           python deploy/generator_tkinter_hotfix.py reconstructed/public
 
+          base64 --decode deploy/mobile_v4.patch.gz.b64 | gzip -d > /tmp/mobile_v4.patch
+          (
+            cd reconstructed
+            patch -p1 < /tmp/mobile_v4.patch
+          )
+
           grep -q "favoriteBtn" reconstructed/public/index.html
           grep -q "statusFilter" reconstructed/public/index.html
           grep -q "markCurrentSeen" reconstructed/public/app.js
           grep -q "lastSwipeAt" reconstructed/public/app.js
-          grep -q "histoscroll-pages-v6" reconstructed/public/sw.js
+          grep -q "histoscroll-pages-v7" reconstructed/public/sw.js
+          ! grep -q "if(!(matchMedia('(max-width:740px)')" reconstructed/public/app.js
           test -f reconstructed/public/pc-generator/HistoScroll_PC_Generator.py
           ! grep -q "pack(side='left',pad=" reconstructed/public/pc-generator/HistoScroll_PC_Generator.py
 
