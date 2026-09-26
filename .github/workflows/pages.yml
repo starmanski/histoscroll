@@ -57,7 +57,7 @@ jobs:
             patch -p1 < /tmp/mobile_v4.patch
           )
 
-          base64 --decode deploy/mobile_v5.patch.gz.b64 | gzip -d > /tmp/mobile_v5.patch
+          cat deploy/mobile_v5_correct_parts/part* | base64 --decode | gzip -d > /tmp/mobile_v5.patch
           (
             cd reconstructed
             patch -p1 < /tmp/mobile_v5.patch
