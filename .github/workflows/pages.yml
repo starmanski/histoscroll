@@ -37,7 +37,7 @@ jobs:
           python deploy/admin_test_patch.py reconstructed/public
           grep -q "adminDemoBtn" reconstructed/public/index.html
 
-          base64 --decode deploy/mobile_v2.patch.gz.b64 | gzip -d > /tmp/mobile_v2.patch
+          cat deploy/mobile_v2_parts/part* | base64 --decode | gzip -d > /tmp/mobile_v2.patch
           (
             cd reconstructed
             patch -p1 < /tmp/mobile_v2.patch
