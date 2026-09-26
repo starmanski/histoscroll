@@ -57,14 +57,27 @@ jobs:
             patch -p1 < /tmp/mobile_v4.patch
           )
 
+          base64 --decode deploy/mobile_v5.patch.gz.b64 | gzip -d > /tmp/mobile_v5.patch
+          (
+            cd reconstructed
+            patch -p1 < /tmp/mobile_v5.patch
+          )
+
           grep -q "favoriteBtn" reconstructed/public/index.html
           grep -q "statusFilter" reconstructed/public/index.html
           grep -q "markCurrentSeen" reconstructed/public/app.js
-          grep -q "lastSwipeAt" reconstructed/public/app.js
-          grep -q "histoscroll-pages-v7" reconstructed/public/sw.js
-          ! grep -q "if(!(matchMedia('(max-width:740px)')" reconstructed/public/app.js
+          grep -q "markdownToPackage" reconstructed/public/app.js
+          grep -q "packageToMarkdown" reconstructed/public/app.js
+          grep -q "navSafeTarget" reconstructed/public/app.js
+          grep -q ".player-bottom" reconstructed/public/app.js
+          grep -q "holdPaused" reconstructed/public/app.js
+          grep -q "interactive-card" reconstructed/public/style.css
+          grep -q "histoscroll-pages-v8" reconstructed/public/sw.js
+          test -f reconstructed/public/QUICKSTART_MARKDOWN.md
           test -f reconstructed/public/pc-generator/HistoScroll_PC_Generator.py
           ! grep -q "pack(side='left',pad=" reconstructed/public/pc-generator/HistoScroll_PC_Generator.py
+          node --check reconstructed/public/app.js
+          node --check reconstructed/public/core.js
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
