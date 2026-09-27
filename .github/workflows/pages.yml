@@ -26,73 +26,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Reconstruct HistoScroll source
+      - name: Apply consolidated fixes to current source
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p reconstructed
-          cat bundle/part* | base64 --decode > histoscroll-source.zip
-          unzip -q histoscroll-source.zip -d reconstructed
-          test -f reconstructed/public/index.html
-          test -f reconstructed/public/config.js
+          test -f source-current/index.html
+          test -f source-current/app.js
+          test -f source-current/style.css
+          python deploy/fix_current_source.py source-current
+          grep -q "kind:'all'" source-current/app.js
+          grep -q "player-top-actions" source-current/index.html
+          grep -q "const player=\$('#player'\)" source-current/app.js
+          grep -q "histoscroll-pages-v9" source-current/sw.js
+          node --check source-current/app.js
+          node --check source-current/core.js
 
-          python deploy/admin_test_patch.py reconstructed/public
-          grep -q "adminDemoBtn" reconstructed/public/index.html
-
-          cat deploy/mobile_v2_parts/part* | base64 --decode | gzip -d > /tmp/mobile_v2.patch
-          (
-            cd reconstructed
-            patch -p1 < /tmp/mobile_v2.patch
-          )
-
-          base64 --decode deploy/mobile_v3.patch.gz.b64 | gzip -d > /tmp/mobile_v3.patch
-          (
-            cd reconstructed
-            patch -p1 < /tmp/mobile_v3.patch
-          )
-
-          python deploy/generator_tkinter_hotfix.py reconstructed/public
-
-          base64 --decode deploy/mobile_v4.patch.gz.b64 | gzip -d > /tmp/mobile_v4.patch
-          (
-            cd reconstructed
-            patch -p1 < /tmp/mobile_v4.patch
-          )
-
-          cat deploy/mobile_v5_correct_parts/part* | base64 --decode | gzip -d > /tmp/mobile_v5.patch
-          (
-            cd reconstructed
-            patch -p1 < /tmp/mobile_v5.patch
-          )
-
-          grep -q "favoriteBtn" reconstructed/public/index.html
-          grep -q "statusFilter" reconstructed/public/index.html
-          grep -q "markCurrentSeen" reconstructed/public/app.js
-          grep -q "markdownToPackage" reconstructed/public/app.js
-          grep -q "packageToMarkdown" reconstructed/public/app.js
-          grep -q "navSafeTarget" reconstructed/public/app.js
-          grep -q ".player-bottom" reconstructed/public/app.js
-          grep -q "holdPaused" reconstructed/public/app.js
-          grep -q "interactive-card" reconstructed/public/style.css
-          grep -q "histoscroll-pages-v8" reconstructed/public/sw.js
-          test -f reconstructed/public/QUICKSTART_MARKDOWN.md
-          test -f reconstructed/public/pc-generator/HistoScroll_PC_Generator.py
-          ! grep -q "pack(side='left',pad=" reconstructed/public/pc-generator/HistoScroll_PC_Generator.py
-          node --check reconstructed/public/app.js
-          node --check reconstructed/public/core.js
-
-      - name: Materialize current deployed source
+      - name: Persist cleaned source
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf source-current
-          mkdir -p source-current
-          cp -a reconstructed/public/. source-current/
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add source-current
           if ! git diff --cached --quiet; then
-            git commit -m "Materialize current deployed source"
+            git commit -m "Apply HistoScroll feed and gesture fixes"
             git push
           fi
 
@@ -104,7 +61,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: reconstructed/public
+          path: source-current
 
       - name: Deploy to GitHub Pages
         id: deployment
