@@ -1,0 +1,18 @@
+{
+  "name": "HistoScroll — Dein Lernfeed",
+  "short_name": "HistoScroll",
+  "description": "Private Lernshorts aus deinen Lehrbüchern.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#101513",
+  "theme_color": "#111615",
+  "lang": "de-DE",
+  "categories": ["education", "medical"],
+  "icons": [
+    {"src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "./icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
