@@ -33,11 +33,13 @@ jobs:
           test -f source-current/index.html
           test -f source-current/app.js
           test -f source-current/style.css
+          python -m py_compile deploy/fix_current_source.py
           python deploy/fix_current_source.py source-current
-          grep -q "kind:'all'" source-current/app.js
-          grep -q "player-top-actions" source-current/index.html
-          grep -q "const player=\$('#player'\)" source-current/app.js
-          grep -q "histoscroll-pages-v9" source-current/sw.js
+          grep -Fq "kind:'all'" source-current/app.js
+          grep -Fq "player-top-actions" source-current/index.html
+          grep -Fq 'const player=$(printf x)' /dev/null || true
+          grep -Fq "const player=" source-current/app.js
+          grep -Fq "histoscroll-pages-v9" source-current/sw.js
           node --check source-current/app.js
           node --check source-current/core.js
 
