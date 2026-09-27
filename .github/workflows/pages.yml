@@ -3,10 +3,12 @@ name: Deploy HistoScroll to GitHub Pages
 on:
   push:
     branches: ["main"]
+    paths-ignore:
+      - "source-current/**"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -78,6 +80,21 @@ jobs:
           ! grep -q "pack(side='left',pad=" reconstructed/public/pc-generator/HistoScroll_PC_Generator.py
           node --check reconstructed/public/app.js
           node --check reconstructed/public/core.js
+
+      - name: Materialize current deployed source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf source-current
+          mkdir -p source-current
+          cp -a reconstructed/public/. source-current/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add source-current
+          if ! git diff --cached --quiet; then
+            git commit -m "Materialize current deployed source"
+            git push
+          fi
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
