@@ -90,7 +90,7 @@ def render_card(clip:dict,scene:dict,out:Path,book_title:str):
     y=190
     src=decode_image(clip.get('image'))
     if src:
-        panel=cover_crop(src,(940,430)).filter(ImageFilter.GaussianBlur(.15)); im.paste(panel,(70,y)); y+=475; draw=ImageDraw.Draw(im)
+        panel=cover_crop(src,(940,320)).filter(ImageFilter.GaussianBlur(.15)); im.paste(panel,(70,y)); y+=365; draw=ImageDraw.Draw(im)
     draw.text((70,y),label.upper()[:55],font=font(25,True),fill=LIME); y+=60
     title=str(clip.get('title') or 'HistoScroll')
     title_font=font(62,True)
@@ -101,15 +101,15 @@ def render_card(clip:dict,scene:dict,out:Path,book_title:str):
     body_size=44
     while body_size>=30:
         bf=font(body_size); lines=wrap_text(draw,body,bf,900)
-        if y+len(lines)*(body_size+18)<1600: break
+        if y+len(lines)*(body_size+18)<1260: break
         body_size-=2
     for line in lines:
         draw.text((70,y),line,font=bf,fill=TEXT); y+=body_size+18
-    # footer
+    # Native player controls can cover roughly the lower third on mobile/desktop.
+    # Keep required text above y=1260 and place source metadata unobtrusively in the header.
     pages=clip.get('pages') or []; page='Buchseite '+', '.join(map(str,pages)) if pages else 'Eigene Passage'
-    draw.rounded_rectangle((60,1740,1020,1850),24,fill=(8,18,14))
-    draw.text((85,1765),book_title[:54],font=font(25,True),fill=TEXT)
-    draw.text((85,1805),page,font=font(23),fill=MUTED)
+    draw.text((1010,72),page,font=font(23,True),fill=MUTED,anchor='ra')
+    draw.text((1010,112),book_title[:38],font=font(20),fill=MUTED,anchor='ra')
     im.save(out,quality=95)
 
 async def tts(text:str,voice:str,rate:str,out:Path):
@@ -150,7 +150,7 @@ def generate_one(clip:dict,book_title:str,out_dir:Path,voice:str,rate:str,progre
         concat(parts,final,tmp)
     return final
 
-def generate_package(package_path:Path,out_dir:Path,count:int=0,voice='de-DE-KatjaNeural',rate='+0%',kinds:set[str]|None=None,progress:Callable[[str],None]=print):
+def generate_package(package_path:Path,out_dir:Path,count:int=0,voice='de-DE-KatjaNeural',rate='-5%',kinds:set[str]|None=None,progress:Callable[[str],None]=print):
     if not shutil.which('ffmpeg') or not shutil.which('ffprobe'):
         raise RuntimeError('FFmpeg/ffprobe fehlt. Installiere FFmpeg unter Windows z. B. mit: winget install --id Gyan.FFmpeg -e . Danach das Generatorfenster neu starten.')
     data=json.loads(package_path.read_text(encoding='utf-8'))
@@ -177,7 +177,7 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__(); self.title('HistoScroll PC-Video-Studio'); self.geometry('760x610'); self.minsize(680,540)
         self.pkg=tk.StringVar(); self.out=tk.StringVar(value=str(Path.home()/'Videos'/'HistoScroll'))
-        self.count=tk.IntVar(value=10); self.voice=tk.StringVar(value=VOICES[0][1]); self.rate=tk.StringVar(value='+0%'); self.editorial=tk.BooleanVar(value=True); self.focus=tk.BooleanVar(value=True); self.excerpt=tk.BooleanVar(value=False)
+        self.count=tk.IntVar(value=10); self.voice=tk.StringVar(value=VOICES[0][1]); self.rate=tk.StringVar(value='-5%'); self.editorial=tk.BooleanVar(value=True); self.focus=tk.BooleanVar(value=True); self.excerpt=tk.BooleanVar(value=False)
         self.q=queue.Queue(); self._build(); self.after(100,self.poll)
     def _build(self):
         f=ttk.Frame(self,padding=20); f.pack(fill='both',expand=True)
@@ -185,7 +185,7 @@ class App(tk.Tk):
         self.row_file(f,'Clip-Paket (.json)',self.pkg,self.pick_pkg); self.row_file(f,'Ausgabeordner',self.out,self.pick_out)
         g=ttk.Frame(f); g.pack(fill='x',pady=8); ttk.Label(g,text='Anzahl (0 = alle)',width=24).pack(side='left'); ttk.Spinbox(g,from_=0,to=10000,textvariable=self.count,width=10).pack(side='left')
         g=ttk.Frame(f); g.pack(fill='x',pady=8); ttk.Label(g,text='Stimme',width=24).pack(side='left'); cb=ttk.Combobox(g,state='readonly',width=38,values=[x[0] for x in VOICES]); cb.current(0); cb.pack(side='left'); cb.bind('<<ComboboxSelected>>',lambda e:self.voice.set(VOICES[cb.current()][1]))
-        g=ttk.Frame(f); g.pack(fill='x',pady=8); ttk.Label(g,text='Sprechtempo',width=24).pack(side='left'); ttk.Combobox(g,textvariable=self.rate,state='readonly',values=['-10%','+0%','+10%','+20%'],width=10).pack(side='left')
+        g=ttk.Frame(f); g.pack(fill='x',pady=8); ttk.Label(g,text='Sprechtempo',width=24).pack(side='left'); ttk.Combobox(g,textvariable=self.rate,state='readonly',values=['-15%','-10%','-5%','+0%','+10%'],width=10).pack(side='left')
         kinds=ttk.LabelFrame(f,text='Clip-Arten',padding=10); kinds.pack(fill='x',pady=10); ttk.Checkbutton(kinds,text='Erklärt',variable=self.editorial).pack(side='left',padx=(0,18)); ttk.Checkbutton(kinds,text='Fokus',variable=self.focus).pack(side='left',padx=(0,18)); ttk.Checkbutton(kinds,text='Originalpassagen',variable=self.excerpt).pack(side='left')
         self.start=ttk.Button(f,text='MP4-Shorts generieren',command=self.go); self.start.pack(fill='x',pady=(8,12),ipady=7)
         self.bar=ttk.Progressbar(f,mode='indeterminate'); self.bar.pack(fill='x'); self.log=tk.Text(f,height=13,wrap='word',state='disabled'); self.log.pack(fill='both',expand=True,pady=(10,0))
