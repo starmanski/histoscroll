@@ -1,7 +1,7 @@
 import {cleanText,generateClips,makeFocusClip,shuffle,duration,validatePackage,markdownToPackage,packageToMarkdown} from './core.js';
 import {configured,restoreSession,requestOtp,verifyOtp,signOut,currentUser,isAdmin as cloudIsAdmin,books as cloudBooks,clipStates as cloudClipStates,media} from './cloud.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const state={books:[],disabled:[],pool:[],order:[],history:[],pos:0,scene:0,elapsed:0,playing:true,sound:false,speaking:false,kind:'editorial',topic:'',status:'unseen',view:'feed',speed:1,round:1,clipStates:new Map(),holdPaused:false,holdWasPlaying:false,ignoreClickUntil:0,quizState:new Map()};
+const state={books:[],disabled:[],pool:[],order:[],history:[],pos:0,scene:0,elapsed:0,playing:true,sound:false,speaking:false,kind:'all',topic:'',status:'unseen',view:'feed',speed:1,round:1,clipStates:new Map(),holdPaused:false,holdWasPlaying:false,ignoreClickUntil:0,quizState:new Map()};
 try{state.disabled=JSON.parse(localStorage.getItem('hs-disabled')||'[]');state.speed=Number(localStorage.getItem('hs-speed'))||1;}catch{}
 let pdfDoc=null,pending=null,importMode='pdf',importBusy=false,exportCancelled=false,exporting=false,lastFrame=performance.now(),speechToken=0,voiceWaitTimer=null,exportUrl=null,deferredInstallPrompt=null,realVideoToken=0,seenTimer=null;
 let adminDemo=false,cloudAdmin=false;
@@ -120,7 +120,52 @@ $('#realVideo').addEventListener('play',()=>stopSpeech());$('#realVideo').addEve
 document.addEventListener('click',e=>{const view=e.target.closest('[data-view]');if(view)showView(view.dataset.view);const kind=e.target.closest('[data-kind]');if(kind){state.kind=kind.dataset.kind;$$('[data-kind]').forEach(b=>b.classList.toggle('selected',b===kind));rebuild(true);}const s=e.target.closest('[data-scene]');if(s){state.scene=Number(s.dataset.scene);state.elapsed=0;renderScene();}});
 $('.brand').onclick=e=>{e.preventDefault();showView('feed');};$('#syncBtn').onclick=async()=>{$('#syncBtn').disabled=true;try{await loadRemote();toast(adminDemo?'Lokale Testbibliothek neu geladen.':'Bibliothek synchronisiert.');}finally{$('#syncBtn').disabled=false;}};$('#openBooks').onclick=()=>showView('books');$('#topic').onchange=e=>{state.topic=e.target.value;rebuild(true);};$('#statusFilter').onchange=e=>{state.status=e.target.value;rebuild(true);};$('#showSeenFromEmpty').onclick=()=>{state.status='all';rebuild(true);};$('#likeBtn').onclick=e=>{e.stopPropagation();const c=current();if(c)setClipState(c,{liked:!clipState(c).liked});};$('#favoriteBtn').onclick=e=>{e.stopPropagation();const c=current();if(c)setClipState(c,{favorite:!clipState(c).favorite});};$('#nextClip').onclick=nextClip;$('#prevClip').onclick=prevClip;$('#playBtn').onclick=()=>setPlaying(!state.playing);$('#nextScene').onclick=()=>sceneStep(1);$('#backScene').onclick=()=>sceneStep(-1);$('#revealBtn').onclick=()=>sceneStep(1);$('#soundBtn').onclick=()=>{state.sound=!state.sound;updateSound();speak();};$('#speedBtn').onclick=()=>{state.speed=({1:1.25,1.25:1.5,1.5:.75,.75:1})[state.speed]||1;try{localStorage.setItem('hs-speed',state.speed);}catch{}$('#speedBtn').textContent=state.speed+'×';speak();};$('#sourceBtn').onclick=source;$('#mobileSource').onclick=source;$('#aboutBtn').onclick=()=>showDialog('#aboutDialog');$$('.close-dialog').forEach(b=>b.onclick=()=>b.closest('dialog').close());$$('dialog').forEach(d=>d.addEventListener('close',()=>{if(d.id==='videoDialog'&&exporting)exportCancelled=true;else speak();}));
 document.addEventListener('keydown',e=>{if(state.view!=='feed'||$('dialog[open]')||/INPUT|SELECT|TEXTAREA|BUTTON/.test(e.target.tagName))return;if(e.key==='ArrowDown'){e.preventDefault();nextClip();}if(e.key==='ArrowUp'){e.preventDefault();prevClip();}if(e.key===' '){e.preventDefault();setPlaying(!state.playing);}if(e.key==='ArrowRight')sceneStep(1);if(e.key==='ArrowLeft')sceneStep(-1);});
-let wheel=0,wheelAt=0,touchY=0,lastSwipeAt=0,holdTimer=null,holdPointerId=null;const navSafeTarget=t=>t.closest('button,a,input,select,textarea,video,.clip-actions,.progress,.real-video-wrap,.player-bottom,.play-controls,.clip-meta,[data-no-nav],.quiz-option,.reveal-toggle');function startHold(e){if(navSafeTarget(e.target))return;clearTimeout(holdTimer);holdPointerId=e.pointerId;state.holdWasPlaying=state.playing;holdTimer=setTimeout(()=>{holdTimer=null;state.holdPaused=true;state.ignoreClickUntil=Date.now()+350;setPlaying(false);$('#player').classList.add('hold-paused');},220);}function endHold(e){if(holdPointerId!==null&&e.pointerId!==undefined&&e.pointerId!==holdPointerId)return;clearTimeout(holdTimer);holdTimer=null;holdPointerId=null;if(state.holdPaused){state.holdPaused=false;$('#player').classList.remove('hold-paused');if(state.holdWasPlaying)setPlaying(true);}}$('#player').addEventListener('pointerdown',startHold);['pointerup','pointercancel','pointerleave'].forEach(ev=>$('#player').addEventListener(ev,endHold));$('#player').addEventListener('wheel',e=>{const box=$('#sceneContent');if(box.scrollHeight>box.clientHeight+2&&e.target.closest('#sceneContent'))return;e.preventDefault();if(Date.now()-wheelAt<650)return;wheel+=e.deltaY;if(Math.abs(wheel)>65){wheel>0?nextClip():prevClip();wheel=0;wheelAt=Date.now();}},{passive:false});$('#player').addEventListener('touchstart',e=>{touchY=e.touches[0].clientY;},{passive:true});$('#player').addEventListener('touchmove',e=>{const box=$('#sceneContent');if(box.scrollHeight>box.clientHeight+2&&e.target.closest('#sceneContent'))return;e.preventDefault();},{passive:false});$('#player').addEventListener('touchend',e=>{const box=$('#sceneContent');if(box.scrollHeight>box.clientHeight+2&&e.target.closest('#sceneContent'))return;const diff=touchY-e.changedTouches[0].clientY;if(Math.abs(diff)>55){lastSwipeAt=Date.now();diff>0?nextClip():prevClip();}},{passive:true});$('#player').addEventListener('click',e=>{if(Date.now()<state.ignoreClickUntil||Date.now()-lastSwipeAt<450)return;if(navSafeTarget(e.target))return;const rect=$('#player').getBoundingClientRect(),x=e.clientX-rect.left;if(x<rect.width/2)sceneStep(-1);else sceneStep(1);});let innerTouchY=0;$('#sceneContent').addEventListener('touchstart',e=>{innerTouchY=e.touches[0].clientY;},{passive:true});$('#sceneContent').addEventListener('touchmove',e=>{const box=$('#sceneContent');if(box.scrollHeight>box.clientHeight+2){const y=e.touches[0].clientY;box.scrollTop+=innerTouchY-y;innerTouchY=y;e.preventDefault();}},{passive:false});$('#sceneText').addEventListener('click',e=>{const reveal=e.target.closest('#inlineRevealBtn');if(reveal){const s=current()?.scenes?.[state.scene];if(!s?.interactive||s.interactive.type!=='reveal')return;s._revealed=!s._revealed;renderScene();return;}const choice=e.target.closest('[data-quiz-choice]');if(choice){const s=current()?.scenes?.[state.scene];if(!s?.interactive||s.interactive.type!=='mcq')return;const idx=Number(choice.dataset.quizChoice),opts=s.interactive.options||[],correct=!!opts[idx]?.correct;state.quizState.set((current()?.id||'')+'::'+state.scene,{answered:true,choice:idx,correct});renderScene();}});document.addEventListener('visibilitychange',()=>{if(document.hidden){stopSpeech();if(exporting)toast('Bitte den Export-Tab geöffnet lassen.');}else speak();});
+let wheel=0,wheelAt=0,holdTimer=null,gesture=null;
+const player=$('#player');
+const navSafeTarget=t=>t.closest('button,a,input,select,textarea,video,.clip-actions,.progress,.real-video-wrap,.player-bottom,.play-controls,.clip-meta,[data-no-nav],.quiz-option,.reveal-toggle');
+const scrollableScene=t=>{const box=t.closest('#sceneContent');return box&&box.scrollHeight>box.clientHeight+2?box:null;};
+function cancelHoldTimer(){if(holdTimer){clearTimeout(holdTimer);holdTimer=null;}}
+function resumeFromHold(){if(!state.holdPaused)return;state.holdPaused=false;player.classList.remove('hold-paused');if(state.holdWasPlaying)setPlaying(true);}
+function clearGesture({resume=true}={}){cancelHoldTimer();gesture=null;if(resume)resumeFromHold();}
+player.addEventListener('pointerdown',e=>{
+ if(e.isPrimary===false)return;
+ if(e.pointerType==='mouse'&&e.button!==0)return;
+ if(navSafeTarget(e.target))return;
+ const scrollBox=scrollableScene(e.target);
+ gesture={id:e.pointerId,startX:e.clientX,startY:e.clientY,lastX:e.clientX,lastY:e.clientY,startedAt:performance.now(),moved:false,longPressed:false,scrollBox};
+ state.holdWasPlaying=state.playing;
+ try{player.setPointerCapture(e.pointerId);}catch{}
+ cancelHoldTimer();
+ holdTimer=setTimeout(()=>{
+   if(!gesture||gesture.id!==e.pointerId||gesture.moved)return;
+   holdTimer=null;gesture.longPressed=true;state.holdPaused=true;state.ignoreClickUntil=Date.now()+500;setPlaying(false);player.classList.add('hold-paused');
+ },220);
+});
+player.addEventListener('pointermove',e=>{
+ if(!gesture||e.pointerId!==gesture.id)return;
+ const stepY=e.clientY-gesture.lastY;
+ const dx=e.clientX-gesture.startX,dy=e.clientY-gesture.startY;
+ gesture.lastX=e.clientX;gesture.lastY=e.clientY;
+ if(Math.hypot(dx,dy)>12){gesture.moved=true;cancelHoldTimer();}
+ if(gesture.scrollBox&&gesture.moved){gesture.scrollBox.scrollTop-=stepY;e.preventDefault();}
+});
+function finishPointer(e,cancelled=false){
+ if(!gesture||e.pointerId!==gesture.id)return;
+ const g=gesture;cancelHoldTimer();
+ try{if(player.hasPointerCapture?.(e.pointerId))player.releasePointerCapture(e.pointerId);}catch{}
+ gesture=null;
+ if(g.longPressed||state.holdPaused){resumeFromHold();state.ignoreClickUntil=Date.now()+500;return;}
+ if(cancelled)return;
+ const dx=e.clientX-g.startX,dy=e.clientY-g.startY,travel=Math.hypot(dx,dy),elapsed=performance.now()-g.startedAt;
+ if(g.scrollBox&&travel>12)return;
+ if(Math.abs(dy)>55&&Math.abs(dy)>Math.abs(dx)*1.15){dy>0?nextClip():prevClip();return;}
+ if(travel<=18&&elapsed<600){const rect=player.getBoundingClientRect(),x=e.clientX-rect.left;x<rect.width/2?sceneStep(-1):sceneStep(1);}
+}
+player.addEventListener('pointerup',e=>finishPointer(e,false));
+player.addEventListener('pointercancel',e=>finishPointer(e,true));
+window.addEventListener('blur',()=>clearGesture());
+player.addEventListener('wheel',e=>{const box=$('#sceneContent');if(box.scrollHeight>box.clientHeight+2&&e.target.closest('#sceneContent'))return;e.preventDefault();if(Date.now()-wheelAt<650)return;wheel+=e.deltaY;if(Math.abs(wheel)>65){wheel>0?nextClip():prevClip();wheel=0;wheelAt=Date.now();}},{passive:false});
+$('#sceneText').addEventListener('click',e=>{const reveal=e.target.closest('#inlineRevealBtn');if(reveal){const s=current()?.scenes?.[state.scene];if(!s?.interactive||s.interactive.type!=='reveal')return;s._revealed=!s._revealed;renderScene();return;}const choice=e.target.closest('[data-quiz-choice]');if(choice){const s=current()?.scenes?.[state.scene];if(!s?.interactive||s.interactive.type!=='mcq')return;const idx=Number(choice.dataset.quizChoice),opts=s.interactive.options||[],correct=!!opts[idx]?.correct;state.quizState.set((current()?.id||'')+'::'+state.scene,{answered:true,choice:idx,correct});renderScene();}});document.addEventListener('visibilitychange',()=>{if(document.hidden){stopSpeech();if(exporting)toast('Bitte den Export-Tab geöffnet lassen.');}else speak();});
 $('#booksGrid').addEventListener('change',e=>{const id=e.target.dataset.toggleBook;if(!id)return;state.disabled=e.target.checked?state.disabled.filter(x=>x!==id):[...new Set([...state.disabled,id])];try{localStorage.setItem('hs-disabled',JSON.stringify(state.disabled));}catch{}rebuild(true);});
 $('#booksGrid').addEventListener('click',async e=>{const exp=e.target.closest('[data-export-book]'),expMd=e.target.closest('[data-export-markdown]'),del=e.target.closest('[data-remove-book]');if(exp){const b=state.books.find(b=>b.id===exp.dataset.exportBook);download(new Blob([JSON.stringify(b)],{type:'application/json'}),b.title.replace(/[^\p{L}\d-]/gu,'_')+'.json');}if(expMd){const b=state.books.find(b=>b.id===expMd.dataset.exportMarkdown);download(new Blob([packageToMarkdown(b)],{type:'text/markdown;charset=utf-8'}),b.title.replace(/[^\p{L}\d-]/gu,'_')+'.md');}if(del){const id=del.dataset.removeBook;if(!confirm('Dieses importierte Buch und seine Clips dauerhaft löschen?'))return;del.disabled=true;try{await api('/api/books/'+id,{method:'DELETE'});state.books=state.books.filter(b=>b.id!==id);rebuild(true);toast('Buch gelöscht.');}catch(e){toast(e.message);del.disabled=false;}}});
 // PDF and passage import. No generated claims; every scene retains its source.

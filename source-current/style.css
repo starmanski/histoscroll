@@ -76,3 +76,18 @@ body.feed-active .scene-text{font-size:1.03rem;line-height:1.42}
   .interactive-card{padding:12px;border-radius:12px}
   .quiz-option{padding:11px 12px}
 }
+
+
+/* V6: consolidated feed/gesture fixes */
+.player-top-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.top-like-button{display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #ffffff2b;border-radius:999px;background:#10151355;color:#f4f4e8;min-height:34px}
+.top-like-button span{font-size:1.15rem;line-height:1}.top-like-button small{font-size:.62rem;color:inherit}
+.top-like-button.active{background:var(--lime);border-color:var(--lime);color:var(--ink)}
+#favoriteBtn[hidden]{display:none!important}
+@media(max-width:740px){
+ body.feed-active .player-top{padding-right:14px}
+ body.feed-active .scene-content{padding:17px 18px 8px}
+ body.feed-active .player-top-actions{gap:7px}
+ body.feed-active .top-like-button{padding:4px 7px;min-height:32px}
+ body.feed-active .top-like-button small{display:none}
+}
