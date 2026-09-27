@@ -8,10 +8,12 @@ app_path = root / "app.js"
 index_path = root / "index.html"
 style_path = root / "style.css"
 sw_path = root / "sw.js"
+generator_path = root / "pc-generator" / "HistoScroll_PC_Generator.py"
 
 app = app_path.read_text(encoding="utf-8")
 index = index_path.read_text(encoding="utf-8")
 style = style_path.read_text(encoding="utf-8")
+generator = generator_path.read_text(encoding="utf-8") if generator_path.exists() else ""
 
 # 1) Main feed must use the whole library, not only the 12 editorial clips.
 app = app.replace("kind:'editorial',topic:'',status:'unseen'", "kind:'all',topic:'',status:'unseen'")
@@ -104,13 +106,43 @@ if marker not in style:
 }
 '''
 
+# 5) Exported MP4s: reserve the lower third for native browser/mobile video controls.
+#    Also make the high-quality Edge neural voice the practical default rather than a fast robotic read.
+if generator:
+    generator = generator.replace(
+        "panel=cover_crop(src,(940,430)).filter(ImageFilter.GaussianBlur(.15)); im.paste(panel,(70,y)); y+=475; draw=ImageDraw.Draw(im)",
+        "panel=cover_crop(src,(940,320)).filter(ImageFilter.GaussianBlur(.15)); im.paste(panel,(70,y)); y+=365; draw=ImageDraw.Draw(im)"
+    )
+    generator = generator.replace(
+        "if y+len(lines)*(body_size+18)<1600: break",
+        "if y+len(lines)*(body_size+18)<1260: break"
+    )
+    old_footer = """    # footer\n    pages=clip.get('pages') or []; page='Buchseite '+', '.join(map(str,pages)) if pages else 'Eigene Passage'\n    draw.rounded_rectangle((60,1740,1020,1850),24,fill=(8,18,14))\n    draw.text((85,1765),book_title[:54],font=font(25,True),fill=TEXT)\n    draw.text((85,1805),page,font=font(23),fill=MUTED)\n"""
+    new_footer = """    # Native player controls can cover roughly the lower third on mobile/desktop.\n    # Keep required text above y=1260 and place source metadata unobtrusively in the header.\n    pages=clip.get('pages') or []; page='Buchseite '+', '.join(map(str,pages)) if pages else 'Eigene Passage'\n    draw.text((1010,72),page,font=font(23,True),fill=MUTED,anchor='ra')\n    draw.text((1010,112),book_title[:38],font=font(20),fill=MUTED,anchor='ra')\n"""
+    if old_footer in generator:
+        generator = generator.replace(old_footer, new_footer)
+    generator = generator.replace(
+        "def generate_package(package_path:Path,out_dir:Path,count:int=0,voice='de-DE-KatjaNeural',rate='+0%',kinds:set[str]|None=None,progress:Callable[[str],None]=print):",
+        "def generate_package(package_path:Path,out_dir:Path,count:int=0,voice='de-DE-KatjaNeural',rate='-5%',kinds:set[str]|None=None,progress:Callable[[str],None]=print):"
+    )
+    generator = generator.replace(
+        "self.rate=tk.StringVar(value='+0%')",
+        "self.rate=tk.StringVar(value='-5%')"
+    )
+    generator = generator.replace(
+        "values=['-10%','+0%','+10%','+20%']",
+        "values=['-15%','-10%','-5%','+0%','+10%']"
+    )
+
 app_path.write_text(app, encoding="utf-8")
 index_path.write_text(index, encoding="utf-8")
 style_path.write_text(style, encoding="utf-8")
+if generator:
+    generator_path.write_text(generator, encoding="utf-8")
 
 if sw_path.exists():
     sw = sw_path.read_text(encoding="utf-8")
     sw = sw.replace("histoscroll-pages-v8", "histoscroll-pages-v9")
     sw_path.write_text(sw, encoding="utf-8")
 
-print("Applied consolidated HistoScroll V6 fixes")
+print("Applied consolidated HistoScroll V7 fixes")
